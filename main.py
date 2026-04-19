@@ -5,7 +5,7 @@ from discord.ext import commands
 
 # ================= AYARLAR =================
 # Buraya botun duracağı ses kanalının ID'sini yaz
-SES_KANAL_ID = 1495031512729518242 
+SES_KANAL_ID = 1495031512729518242
 
 intents = discord.Intents.default()
 intents.voice_states = True # Ses durumlarını izlemek için şart
