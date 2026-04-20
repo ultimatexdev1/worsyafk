@@ -1,66 +1,59 @@
-import os
 import discord
 import asyncio
-from discord.ext import commands
-
-# ================= AYARLAR =================
-SES_KANAL_ID = 1495031512729518242 
+from discord.ext import commands, tasks
+import os
 
 intents = discord.Intents.default()
-intents.voice_states = True 
-bot = commands.Bot(command_prefix="afk!", intents=intents)
+bot = commands.Bot(command_prefix="!", intents=intents)
 
-# ================= FONKSİYONLAR =================
+SES_KANAL_ID = 1459873716698877972
 
-async def join_voice_channel():
-    """Botun kanalı bulmasını ve AFK olarak girmesini sağlar."""
+# ================= SES BAĞLANTI =================
+async def connect_voice():
+    await bot.wait_until_ready()
+
+    channel = bot.get_channel(SES_KANAL_ID)
+    if not channel:
+        print("❌ Kanal bulunamadı!")
+        return
+
     try:
-        # get_channel yerine fetch_channel kullanarak kanalı zorla buluyoruz
-        channel = await bot.fetch_channel(SES_KANAL_ID)
-        
-        if not channel or not isinstance(channel, discord.VoiceChannel):
-            print(f"❌ HATA: {SES_KANAL_ID} ID'li bir SES kanalı bulunamadı!")
-            return
-
-        # Mevcut ses bağlantısını kontrol et
         vc = discord.utils.get(bot.voice_clients, guild=channel.guild)
 
-        if not vc:
-            await channel.connect(reconnect=True, timeout=20, self_deaf=True, self_mute=True)
-            print(f"🔊 {channel.name} kanalına başarıyla giriş yapıldı.")
+        if vc is None:
+            await channel.connect(reconnect=True)
+            print(f"🔊 Bağlandı: {channel.name}")
         elif vc.channel.id != SES_KANAL_ID:
             await vc.move_to(channel)
-            
-    except discord.NotFound:
-        print("❌ HATA: Kanal bulunamadı. ID yanlış olabilir veya bot bu sunucuda değil.")
-    except discord.Forbidden:
-        print("❌ HATA: Botun bu kanalı görme/bağlanma yetkisi yok!")
+            print("🔁 Kanal değiştirildi")
+
     except Exception as e:
-        print(f"❌ Beklenmedik bir hata oluştu: {e}")
+        print("❌ Ses hatası:", e)
 
-# ================= OLAYLAR =================
+# ================= LOOP =================
+@tasks.loop(minutes=3)  # 🔥 Spam yok
+async def voice_loop():
+    await connect_voice()
 
+# ================= EVENTS =================
 @bot.event
 async def on_ready():
-    print(f"✅ {bot.user} AFK Botu Aktif!")
-    
-    # Botun kendine gelmesi için 3 saniye bekle
-    await asyncio.sleep(3)
-    await join_voice_channel()
-    
-    await bot.change_presence(activity=discord.Activity(type=discord.ActivityType.watching, name="Worsy AFK 7/24"))
+    print(f"✅ {bot.user} ses botu aktif!")
 
+    if not voice_loop.is_running():
+        voice_loop.start()
+
+# Eğer atılırsa geri gir
 @bot.event
 async def on_voice_state_update(member, before, after):
-    # Bot sesten düşerse geri girer
     if member.id == bot.user.id and after.channel is None:
-        print("⚠️ Sesten düşüldü, geri bağlanılıyor...")
         await asyncio.sleep(5)
-        await join_voice_channel()
+        await connect_voice()
 
-# ================= ÇALIŞTIR =================
+# ================= BAŞLAT =================
 TOKEN = os.getenv("TOKEN")
+
 if TOKEN:
     bot.run(TOKEN)
 else:
-    print("HATA: TOKEN bulunamadı!")
+    print("TOKEN YOK!")
